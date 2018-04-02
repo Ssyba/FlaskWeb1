@@ -1,9 +1,9 @@
 from functools import wraps
-
 from flask import Flask, render_template, flash, redirect, url_for, session, request
 from flask_mysqldb import MySQL
 from passlib.hash import sha256_crypt
-from wtforms import Form, StringField, TextAreaField, PasswordField, validators, IntegerField
+from wtforms import Form, StringField, PasswordField, validators, IntegerField
+from flask.ext.login import AnonymousUserMixin
 
 app = Flask(__name__)
 
@@ -74,7 +74,6 @@ class RegisterForm(Form):
     ])
     confirm = PasswordField('Confirm Password')
     admin = IntegerField('Admin')
-
 
 
 # User Register
@@ -159,6 +158,11 @@ def is_logged_in(f):
 
     return wrap
 
+# Check if admin
+class Anonymous(AnonymousUserMixin):
+  def __init__(self):
+    self.id = 'id'
+
 
 # Logout
 @app.route('/logout')
@@ -201,7 +205,7 @@ def edit_user(id):
     # Get user by id
     cur.execute("SELECT * FROM users WHERE id = %s", [id])
 
-    # get the firt user with the id
+    # get the first user with the id
     user = cur.fetchone()
 
     # close connection
@@ -210,20 +214,18 @@ def edit_user(id):
     # Get form
     form = RegisterForm(request.form)
 
-    # Populate user form fields
-    form.name.data = user['name']
-    form.email.data = user['email']
-    form.username.data = user['username']
-    form.password.data = user['password']
-    form.admin.data = user['admin']
+    if request.method == 'GET':
+        # Populate user form fields
+        form.name.data = user['name']
+        form.email.data = user['email']
+        form.username.data = user['username']
+        form.password.data = user['password']
 
-    admin = request.form['admin']
-
-    if request.method == 'POST' and form.validate() and admin == 1:
-        name = request.form['name']
-        email = request.form['email']
-        username = request.form['username']
-        password = request.form['password']
+    if request.method == 'POST' and form.validate():
+        name = form.name.data
+        email = form.email.data
+        username = form.username.data
+        password = sha256_crypt.encrypt(str(form.password.data))
 
         # Create Cursor
         cur = mysql.connection.cursor()
@@ -242,7 +244,6 @@ def edit_user(id):
         return redirect(url_for('listdb'))
 
     return render_template('edit_user.html', form=form)
-
 
 # Delete user
 @app.route('/delete_user/<string:id>', methods=['POST'])
