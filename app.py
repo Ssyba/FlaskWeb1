@@ -3,7 +3,7 @@ from functools import wraps
 from flask import Flask, render_template, flash, redirect, url_for, session, request
 from flask_mysqldb import MySQL
 from passlib.hash import sha256_crypt
-from wtforms import Form, StringField, TextAreaField, PasswordField, validators
+from wtforms import Form, StringField, TextAreaField, PasswordField, validators, IntegerField
 
 app = Flask(__name__)
 
@@ -73,16 +73,8 @@ class RegisterForm(Form):
         validators.EqualTo('confirm', message='Passwords do not match')
     ])
     confirm = PasswordField('Confirm Password')
-    admin = StringField('Admin')
+    admin = IntegerField('Admin')
 
-
-# Edit Form Class
-class EditForm(Form):
-    name = StringField('Name', [validators.Length(min=1, max=50)])
-    username = StringField('Username', [validators.Length(min=4, max=25)])
-    email = StringField('Email', [validators.Length(min=6, max=50)])
-    password = PasswordField('Password')
-    admin = StringField('Admin')
 
 
 # User Register
@@ -216,7 +208,7 @@ def edit_user(id):
     cur.close()
 
     # Get form
-    form = EditForm(request.form)
+    form = RegisterForm(request.form)
 
     # Populate user form fields
     form.name.data = user['name']
@@ -225,7 +217,9 @@ def edit_user(id):
     form.password.data = user['password']
     form.admin.data = user['admin']
 
-    if request.method == 'POST' and form.validate():
+    admin = request.form['admin']
+
+    if request.method == 'POST' and form.validate() and admin == 1:
         name = request.form['name']
         email = request.form['email']
         username = request.form['username']
