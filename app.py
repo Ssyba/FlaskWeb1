@@ -220,7 +220,6 @@ def u_data(id):
 
         # Create Cursor
         cur = mysql.connection.cursor()
-        app.logger.info(name)
         # Execute
         cur.execute("UPDATE users SET name=%s, email=%s, username=%s, password=%s WHERE id=%s",
                     (name, email, username, password, id))
@@ -279,7 +278,7 @@ def edit_user(id):
         # Close connection
         cur.close()
 
-        flash('user Updated', 'success')
+        flash('User Updated', 'success')
 
         return redirect(url_for('list_db'))
 
