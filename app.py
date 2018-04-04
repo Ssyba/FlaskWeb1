@@ -3,7 +3,7 @@ from flask import Flask, render_template, flash, redirect, url_for, session, req
 from flask_mysqldb import MySQL
 from passlib.hash import sha256_crypt
 from wtforms import Form, StringField, PasswordField, validators, IntegerField
-from flask.ext.login import AnonymousUserMixin
+from flask_debug import Debug
 
 app = Flask(__name__)
 
@@ -37,13 +37,13 @@ def users():
     # Get users
     result = cur.execute("SELECT * FROM users")
 
-    users = cur.fetchall()
+    f_users = cur.fetchall()
 
     # Close connection
     cur.close()
 
     if result > 0:
-        return render_template('users.html', users=users)
+        return render_template('users.html', users=f_users)
     else:
         msg = 'No users Found'
         return render_template('users.html', msg=msg)
@@ -58,9 +58,9 @@ def user(id):
     # Get user
     cur.execute("SELECT * FROM users WHERE id = %s", [id])
 
-    user = cur.fetchone()
+    f_user = cur.fetchone()
 
-    return render_template('user.html', user=user)
+    return render_template('user.html', user=f_user)
 
 
 # Register Form Class
@@ -110,19 +110,21 @@ def register():
 def login():
     if request.method == 'POST':
         # Get Form Fields
-        username = request.form['username']
+        username_c = request.form['username']
         password_candidate = request.form['password']
 
         # Create cursor
         cur = mysql.connection.cursor()
 
         # Get user by username
-        result = cur.execute("SELECT * FROM users WHERE username = %s", [username])
+        result = cur.execute("SELECT * FROM users WHERE username = %s", [username_c])
 
         if result > 0:
             # Get stored hash
             data = cur.fetchone()
             password = data['password']
+            admin = data['admin']
+            id = data['id']
 
             # Close connection
             cur.close()
@@ -131,10 +133,12 @@ def login():
             if sha256_crypt.verify(password_candidate, password):
                 # Passed
                 session['logged_in'] = True
-                session['username'] = username
+                session['username'] = username_c
+                session['admin'] = admin
+                session['id'] = id
 
                 flash('You are now logged in', 'success')
-                return redirect(url_for('listdb'))
+                return redirect(url_for('list_db'))
             else:
                 error = 'Invalid login'
                 return render_template('login.html', error=error)
@@ -158,10 +162,19 @@ def is_logged_in(f):
 
     return wrap
 
+
 # Check if admin
-class Anonymous(AnonymousUserMixin):
-  def __init__(self):
-    self.id = 'id'
+def is_admin(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        if session['admin'] == 1 and 'logged_in' in session:
+            return f(*args, **kwargs)
+        elif session['id'] is not None:
+            return redirect(url_for('u_data', id=session['id']))
+        else:
+            flash('id is None,wtf?','danger')
+            return redirect(url_for('login'))
+    return wrap
 
 
 # Logout
@@ -173,32 +186,33 @@ def logout():
     return redirect(url_for('login'))
 
 
-# listdb
-@app.route('/listdb')
+# list_db
+@app.route('/list_db')
 @is_logged_in
-def listdb():
+@is_admin
+def list_db():
     # Create cursor
     cur = mysql.connection.cursor()
 
     # Get users
     result = cur.execute("SELECT * FROM users")
 
-    users = cur.fetchall()
+    f_users = cur.fetchall()
 
     # Close connection
     cur.close()
 
     if result > 0:
-        return render_template('listdb.html', users=users)
+        return render_template('list_db.html', users=f_users)
     else:
         msg = 'No users Found'
-        return render_template('listdb.html', msg=msg)
+        return render_template('list_db.html', msg=msg)
 
 
-# Edit user
-@app.route('/edit_user/<string:id>', methods=['GET', 'POST'])
+# u_data
+@app.route('/u_data/<string:id>', methods=['GET', 'POST'])
 @is_logged_in
-def edit_user(id):
+def u_data(id):
     # Create cursor
     cur = mysql.connection.cursor()
 
@@ -206,7 +220,7 @@ def edit_user(id):
     cur.execute("SELECT * FROM users WHERE id = %s", [id])
 
     # get the first user with the id
-    user = cur.fetchone()
+    user1 = cur.fetchone()
 
     # close connection
     cur.close()
@@ -216,10 +230,10 @@ def edit_user(id):
 
     if request.method == 'GET':
         # Populate user form fields
-        form.name.data = user['name']
-        form.email.data = user['email']
-        form.username.data = user['username']
-        form.password.data = user['password']
+        form.name.data = user1['name']
+        form.email.data = user1['email']
+        form.username.data = user1['username']
+        form.password.data = user1['password']
 
     if request.method == 'POST' and form.validate():
         name = form.name.data
@@ -239,11 +253,61 @@ def edit_user(id):
         # Close connection
         cur.close()
 
+        flash('User Updated', 'success')
+
+        return redirect(url_for('u_data', id=id))
+    return render_template('u_data.html', form=form)
+
+
+# Edit users
+@app.route('/edit_user/<string:id>', methods=['GET', 'POST'])
+@is_logged_in
+@is_admin
+def edit_user(id):
+    # Create cursor
+    cur = mysql.connection.cursor()
+
+    # Get user by id
+    cur.execute("SELECT * FROM users WHERE id = %s", [id])
+
+    # get the first user with the id
+    user1 = cur.fetchone()
+
+    # close connection
+    cur.close()
+
+    # Get form
+    form = RegisterForm(request.form)
+
+    if request.method == 'GET':
+        # Populate user form fields
+        form.name.data = user1['name']
+        form.email.data = user1['email']
+        form.username.data = user1['username']
+
+    if request.method == 'POST' and form.validate():
+        name = form.name.data
+        email = form.email.data
+        username = form.username.data
+
+        # Create Cursor
+        cur = mysql.connection.cursor()
+        app.logger.info(name)
+        # Execute
+        cur.execute("UPDATE users SET name=%s, email=%s, username=%s WHERE id=%s",
+                    (name, email, username, id))
+        # Commit to DB
+        mysql.connection.commit()
+
+        # Close connection
+        cur.close()
+
         flash('user Updated', 'success')
 
-        return redirect(url_for('listdb'))
+        return redirect(url_for('list_db'))
 
     return render_template('edit_user.html', form=form)
+
 
 # Delete user
 @app.route('/delete_user/<string:id>', methods=['POST'])
@@ -261,11 +325,12 @@ def delete_user(id):
     # Close connection
     cur.close()
 
-    flash('user Deleted', 'success')
+    flash('User Deleted', 'success')
 
-    return redirect(url_for('listdb'))
+    return redirect(url_for('list_db'))
 
 
 if __name__ == '__main__':
-    app.secret_key = 'secret123'
-app.run(debug=True)
+    app.secret_key = 'secret1234'
+    app.run(debug=True)
+    Debug(app)
