@@ -3,8 +3,6 @@ from flask import Flask, render_template, flash, redirect, url_for, session, req
 from flask_mysqldb import MySQL
 from passlib.hash import sha256_crypt
 from wtforms import Form, StringField, PasswordField, validators, IntegerField
-from flask_debug import Debug
-
 app = Flask(__name__)
 
 # Config MySQL
@@ -26,27 +24,6 @@ def index():
 @app.route('/about')
 def about():
     return render_template('about.html')
-
-
-# users
-@app.route('/users')
-def users():
-    # Create cursor
-    cur = mysql.connection.cursor()
-
-    # Get users
-    result = cur.execute("SELECT * FROM users")
-
-    f_users = cur.fetchall()
-
-    # Close connection
-    cur.close()
-
-    if result > 0:
-        return render_template('users.html', users=f_users)
-    else:
-        msg = 'No users Found'
-        return render_template('users.html', msg=msg)
 
 
 # Single user
@@ -117,7 +94,7 @@ def login():
         cur = mysql.connection.cursor()
 
         # Get user by username
-        result = cur.execute("SELECT * FROM users WHERE username = %s", [username_c])
+        result = cur.execute("SELECT * FROM users WHERE username=%s", [username_c])
 
         if result > 0:
             # Get stored hash
@@ -150,7 +127,7 @@ def login():
     return render_template('login.html')
 
 
-# Check if user logged in
+# Check if user is logged in
 def is_logged_in(f):
     @wraps(f)
     def wrap(*args, **kwargs):
@@ -172,7 +149,7 @@ def is_admin(f):
         elif session['id'] is not None:
             return redirect(url_for('u_data', id=session['id']))
         else:
-            flash('id is None,wtf?','danger')
+            flash('id is None,wtf?', 'danger')
             return redirect(url_for('login'))
     return wrap
 
@@ -292,7 +269,7 @@ def edit_user(id):
 
         # Create Cursor
         cur = mysql.connection.cursor()
-        app.logger.info(name)
+
         # Execute
         cur.execute("UPDATE users SET name=%s, email=%s, username=%s WHERE id=%s",
                     (name, email, username, id))
@@ -317,7 +294,7 @@ def delete_user(id):
     cur = mysql.connection.cursor()
 
     # Execute
-    cur.execute("DELETE FROM users WHERE id = %s", [id])
+    cur.execute("DELETE FROM users WHERE id = %s", id)
 
     # Commit to DB
     mysql.connection.commit()
@@ -333,4 +310,3 @@ def delete_user(id):
 if __name__ == '__main__':
     app.secret_key = 'secret1234'
     app.run(debug=True)
-    Debug(app)

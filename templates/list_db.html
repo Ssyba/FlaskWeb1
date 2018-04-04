@@ -1,7 +1,7 @@
 {% extends 'layout.html' %}
 
 {% block body %}
-  <h1>Dashboard <small> Welcome {{session.username}}</small></h1>
+  <h1>Users List <small> Welcome {{session.username}}</small></h1>
  <hr>
   <table class="table table-striped">
     <tr>
@@ -10,7 +10,7 @@
       <th>Username</th>
       <th>Email</th>
       <th></th>
-      <th></th>
+      <th>Options</th>
     </tr>
     {% for user in users %}
       <tr>
