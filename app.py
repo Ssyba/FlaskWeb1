@@ -9,7 +9,7 @@ from wtforms import Form, StringField, PasswordField, validators, IntegerField
 
 app = Flask(__name__)
 
-# Config MySQL
+# Config MySQL 
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = 'test1234'
