@@ -1,8 +1,12 @@
 from functools import wraps
 from flask import Flask, render_template, flash, redirect, url_for, session, request
 from flask_mysqldb import MySQL
+from _mysql_exceptions import IntegrityError
 from passlib.hash import sha256_crypt
 from wtforms import Form, StringField, PasswordField, validators, IntegerField
+
+
+
 app = Flask(__name__)
 
 # Config MySQL
@@ -27,13 +31,13 @@ def about():
 
 
 # Single user
-@app.route('/user/<string:id>/')
-def user(id):
+@app.route('/user/<string:u_id>/')
+def user(u_id):
     # Create cursor
     cur = mysql.connection.cursor()
 
     # Get user
-    cur.execute("SELECT * FROM users WHERE id = %s", [id])
+    cur.execute("SELECT * FROM users WHERE id = %s", [u_id])
 
     f_user = cur.fetchone()
 
@@ -53,6 +57,13 @@ class RegisterForm(Form):
     admin = IntegerField('Admin')
 
 
+class EditForm(Form):
+    name = StringField('Name', [validators.Length(min=1, max=50)])
+    username = StringField('Username', [validators.Length(min=4, max=25)])
+    email = StringField('Email', [validators.Length(min=6, max=50)])
+    admin = IntegerField('Admin')
+
+
 # User Register
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -67,11 +78,16 @@ def register():
         cur = mysql.connection.cursor()
 
         # Execute query
-        cur.execute("INSERT INTO users(name, email, username, password) VALUES(%s, %s, %s, %s)",
-                    (name, email, username, password))
+        try:
+            cur.execute("INSERT INTO users(name, email, username, password) VALUES(%s, %s, %s, %s)",
+                        (name, email, username, password))
 
-        # Commit to DB
-        mysql.connection.commit()
+            # Commit to DB
+            mysql.connection.commit()
+        # else:
+        except IntegrityError:
+            flash('Sorry , This user is already registered ', 'danger')
+            return render_template('register.html', form=form)
 
         # Close connection
         cur.close()
@@ -101,7 +117,7 @@ def login():
             data = cur.fetchone()
             password = data['password']
             admin = data['admin']
-            id = data['id']
+            u_id = data['id']
 
             # Close connection
             cur.close()
@@ -112,7 +128,7 @@ def login():
                 session['logged_in'] = True
                 session['username'] = username_c
                 session['admin'] = admin
-                session['id'] = id
+                session['u_id'] = u_id
 
                 flash('You are now logged in', 'success')
                 return redirect(url_for('list_db'))
@@ -146,8 +162,8 @@ def is_admin(f):
     def wrap(*args, **kwargs):
         if session['admin'] == 1 and 'logged_in' in session:
             return f(*args, **kwargs)
-        elif session['id'] is not None:
-            return redirect(url_for('u_data', id=session['id']))
+        elif session['u_id'] is not None:
+            return redirect(url_for('u_data', u_id=session['u_id']))
         else:
             flash('id is None,wtf?', 'danger')
             return redirect(url_for('login'))
@@ -187,14 +203,14 @@ def list_db():
 
 
 # u_data
-@app.route('/u_data/<string:id>', methods=['GET', 'POST'])
+@app.route('/u_data/<string:u_id>', methods=['GET', 'POST'])
 @is_logged_in
-def u_data(id):
+def u_data(u_id):
     # Create cursor
     cur = mysql.connection.cursor()
 
     # Get user by id
-    cur.execute("SELECT * FROM users WHERE id = %s", [id])
+    cur.execute("SELECT * FROM users WHERE id = %s", [u_id])
 
     # get the first user with the id
     user1 = cur.fetchone()
@@ -222,7 +238,7 @@ def u_data(id):
         cur = mysql.connection.cursor()
         # Execute
         cur.execute("UPDATE users SET name=%s, email=%s, username=%s, password=%s WHERE id=%s",
-                    (name, email, username, password, id))
+                    (name, email, username, password, u_id))
         # Commit to DB
         mysql.connection.commit()
 
@@ -231,20 +247,20 @@ def u_data(id):
 
         flash('User Updated', 'success')
 
-        return redirect(url_for('u_data', id=id))
+        return redirect(url_for('u_data', u_id=u_id))
     return render_template('u_data.html', form=form)
 
 
 # Edit users
-@app.route('/edit_user/<string:id>', methods=['GET', 'POST'])
+@app.route('/edit_user/<string:u_id>', methods=['GET', 'POST'])
 @is_logged_in
 @is_admin
-def edit_user(id):
+def edit_user(u_id):
     # Create cursor
     cur = mysql.connection.cursor()
 
     # Get user by id
-    cur.execute("SELECT * FROM users WHERE id = %s", [id])
+    cur.execute("SELECT * FROM users WHERE id = %s", [u_id])
 
     # get the first user with the id
     user1 = cur.fetchone()
@@ -253,7 +269,7 @@ def edit_user(id):
     cur.close()
 
     # Get form
-    form = RegisterForm(request.form)
+    form = EditForm(request.form)
 
     if request.method == 'GET':
         # Populate user form fields
@@ -271,7 +287,7 @@ def edit_user(id):
 
         # Execute
         cur.execute("UPDATE users SET name=%s, email=%s, username=%s WHERE id=%s",
-                    (name, email, username, id))
+                    (name, email, username, u_id))
         # Commit to DB
         mysql.connection.commit()
 
@@ -286,14 +302,14 @@ def edit_user(id):
 
 
 # Delete user
-@app.route('/delete_user/<string:id>', methods=['POST'])
+@app.route('/delete_user/<string:u_id>', methods=['POST'])
 @is_logged_in
-def delete_user(id):
+def delete_user(u_id):
     # Create cursor
     cur = mysql.connection.cursor()
 
     # Execute
-    cur.execute("DELETE FROM users WHERE id = %s", id)
+    cur.execute("DELETE FROM users WHERE id = %s", u_id)
 
     # Commit to DB
     mysql.connection.commit()
