@@ -502,3 +502,5 @@ def delete_user(u_id):
 if __name__ == '__main__':
     app.secret_key = 'secret1234'
     app.run(debug=True)
+
+# Asds
