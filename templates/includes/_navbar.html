@@ -6,6 +6,7 @@
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
             </button>
             <a class="navbar-brand" href="#">FlaskWeb1</a>
         </div>
@@ -14,10 +15,10 @@
                 <li><a href="/">Home</a></li>
                 <li><a href="/about">About</a></li>
                 {% if session.logged_in %}
-                {% if is_admin %}
+                {% if session.is_admin %}
                 <li><a href="/list_db">List DB</a></li>
                 {% else %}
-                <li><a href="/u_data">User Data</a></li>
+                <li><a href="/u_data/<string:username>">User Data</a></li>
                 {% endif %}
                 {% endif %}
                 <li><a href="/articles">Articles</a></li>

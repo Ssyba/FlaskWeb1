@@ -29,6 +29,15 @@ def is_logged_in(f):
     return wrap
 
 
+# Check if admin
+def is_admin(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        if session['admin'] == 1 and 'logged_in' in session:
+            return f(*args, **kwargs)
+    return wrap
+
+
 # Check if article is private
 def is_private(f):
     @wraps(f)
@@ -310,20 +319,6 @@ def login():
     return render_template('login.html')
 
 
-# Check if admin
-def is_admin(f):
-    @wraps(f)
-    def wrap(*args, **kwargs):
-        if session['admin'] == 1 and 'logged_in' in session:
-            return f(*args, **kwargs)
-        elif session['u_id'] is not None:
-            return redirect(url_for('u_data', u_id=session['u_id']))
-        else:
-            flash('id is None,wtf?', 'danger')
-            return redirect(url_for('login'))
-    return wrap
-
-
 # Logout
 @app.route('/logout')
 @is_logged_in
@@ -380,14 +375,14 @@ def list_db():
 
 
 # u_data
-@app.route('/u_data/<string:u_id>', methods=['GET', 'POST'])
+@app.route('/u_data/<string:username>', methods=['GET', 'POST'])
 @is_logged_in
-def u_data(u_id):
+def u_data(username):
     # Create cursor
     cur = mysql.connection.cursor()
 
     # Get user by id
-    cur.execute("SELECT * FROM users WHERE id = %s", [u_id])
+    cur.execute("SELECT * FROM users WHERE username = %s", [username])
 
     # get the first user with the id
     user1 = cur.fetchone()
@@ -424,7 +419,7 @@ def u_data(u_id):
 
         flash('User Updated', 'success')
 
-        return redirect(url_for('u_data', u_id=u_id))
+        return redirect(url_for('u_data', username=username))
     return render_template('u_data.html', form=form)
 
 
@@ -502,5 +497,3 @@ def delete_user(u_id):
 if __name__ == '__main__':
     app.secret_key = 'secret1234'
     app.run(debug=True)
-
-# Asds
