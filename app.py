@@ -1,10 +1,12 @@
-from functools import wraps
 from _mysql_exceptions import IntegrityError
 from flask import Flask, render_template, flash, redirect, url_for, session, request
 from flask_mysqldb import MySQL
 from passlib.hash import sha256_crypt
-from wtforms import Form, StringField, PasswordField, validators, IntegerField, TextAreaField, BooleanField
-from wtforms.validators import optional
+
+# Import created classes and misc
+from myforms import UserForm, EditForm, ArticleForm
+from myvalidators import is_logged_in, is_admin, is_approved, is_private
+
 
 app = Flask(__name__)
 
@@ -17,44 +19,6 @@ app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 mysql = MySQL(app)
 
 
-# Check if user is logged in
-def is_logged_in(f):
-    @wraps(f)
-    def wrap(*args, **kwargs):
-        if 'logged_in' in session:
-            return f(*args, **kwargs)
-        else:
-            flash('Unauthorized, Please login', 'danger')
-            return redirect(url_for('login'))
-    return wrap
-
-
-# Check if admin
-def is_admin(f):
-    @wraps(f)
-    def wrap(*args, **kwargs):
-        if session['admin'] == 1 and 'logged_in' in session:
-            return f(*args, **kwargs)
-    return wrap
-
-
-# Check if article is private
-def is_private(f):
-    @wraps(f)
-    def wrap(*args, **kwargs):
-        if session['state'] == 'private' and 'logged_in' in session:
-            return f(*args, **kwargs)
-    return wrap
-
-# Check if article is approved
-def is_approved(f):
-    @wraps(f)
-    def wrap(*args, **kwargs):
-        if session['approval'] == 'accepted' and 'logged_in' in session:
-            return f(*args, **kwargs)
-    return wrap
-
-
 # Index
 @app.route('/')
 def index():
@@ -65,13 +29,6 @@ def index():
 @app.route('/about')
 def about():
     return render_template('about.html')
-
-
-# Article Form Class
-class ArticleForm(Form):
-    title = StringField('Title', [validators.Length(min=1, max=200)])
-    body = TextAreaField('Body', [validators.Length(min=30)])
-    private = BooleanField('Make Private:', validators=[optional(), ])
 
 
 # Add Article
@@ -119,16 +76,20 @@ def edit_article(a_id):
     cur = mysql.connection.cursor()
 
     # Get article by id
-    result = cur.execute("SELECT * FROM articles WHERE id = %s", [a_id])
+    cur.execute("SELECT * FROM articles WHERE id = %s", [a_id])
 
-    article = cur.fetchone()
+    article1 = cur.fetchone()
+
+    # close connection
     cur.close()
+
     # Get form
     form = ArticleForm(request.form)
 
-    # Populate article form fields
-    form.title.data = article['title']
-    form.body.data = article['body']
+    if request.method == 'GET':
+        # Populate article form fields
+        form.title.data = article1['title']
+        form.body.data = article1['body']
 
     if request.method == 'POST' and form.validate():
         title = request.form['title']
@@ -136,7 +97,6 @@ def edit_article(a_id):
 
         # Create Cursor
         cur = mysql.connection.cursor()
-        app.logger.info(title)
         # Execute
         cur.execute ("UPDATE articles SET title=%s, body=%s WHERE id=%s",(title, body, a_id))
         # Commit to DB
@@ -176,21 +136,22 @@ def delete_article(a_id):
 # Articles
 @app.route('/articles')
 def articles():
-        # Create cursor
-        cur = mysql.connection.cursor()
+    # Create cursor
+    cur = mysql.connection.cursor()
 
-        # Get articles
-        result = cur.execute("SELECT * FROM articles")
+    # Get articles
+    result = cur.execute("SELECT * FROM articles")
 
-        articles = cur.fetchall()
+    articles = cur.fetchall()
+    # Close connection
+    cur.close()
 
-        if result > 0:
-            return render_template('articles.html', articles=articles)
-        else:
-            msg = 'No Articles Found'
-            return render_template('articles.html', msg=msg)
-        # Close connection
-        cur.close()
+    if result > 0:
+        return render_template('articles.html', articles=articles)
+    else:
+        msg = 'No Articles Found'
+        return render_template('articles.html', msg=msg)
+
 
 #Single Article
 @app.route('/article/<string:a_id>/')
@@ -220,30 +181,16 @@ def user(u_id):
     return render_template('user.html', user=f_user)
 
 
-# Register Form Class
-class RegisterForm(Form):
-    name = StringField('Name', [validators.Length(min=1, max=50)])
-    username = StringField('Username', [validators.Length(min=4, max=25)])
-    email = StringField('Email', [validators.Length(min=6, max=50)])
-    password = PasswordField('Password', [
-        validators.DataRequired(),
-        validators.EqualTo('confirm', message='Passwords do not match')
-    ])
-    confirm = PasswordField('Confirm Password')
-    admin = IntegerField('Admin')
 
 
-class EditForm(Form):
-    name = StringField('Name', [validators.Length(min=1, max=50)])
-    username = StringField('Username', [validators.Length(min=4, max=25)])
-    email = StringField('Email', [validators.Length(min=6, max=50)])
-    admin = IntegerField('Admin')
+
+
 
 
 # User Register
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    form = RegisterForm(request.form)
+    form = UserForm(request.form)
     if request.method == 'POST' and form.validate():
         name = form.name.data
         email = form.email.data
@@ -391,7 +338,7 @@ def u_data(username):
     cur.close()
 
     # Get form
-    form = RegisterForm(request.form)
+    form = UserForm(request.form)
 
     if request.method == 'GET':
         # Populate user form fields
@@ -401,7 +348,7 @@ def u_data(username):
         form.password.data = user1['password']
 
     if request.method == 'POST' and form.validate():
-        name = form.name.data
+        name1 = form.name.data
         email = form.email.data
         username = form.username.data
         password = sha256_crypt.encrypt(str(form.password.data))
@@ -409,8 +356,8 @@ def u_data(username):
         # Create Cursor
         cur = mysql.connection.cursor()
         # Execute
-        cur.execute("UPDATE users SET name=%s, email=%s, username=%s, password=%s WHERE id=%s",
-                    (name, email, username, password, u_id))
+        cur.execute("UPDATE users SET name=%s, email=%s, username=%s, password=%s WHERE username=%s",
+                    (name1, email, username, password, username))
         # Commit to DB
         mysql.connection.commit()
 
@@ -424,15 +371,15 @@ def u_data(username):
 
 
 # Edit users
-@app.route('/edit_user/<string:u_id>', methods=['GET', 'POST'])
+@app.route('/edit_user/<string:username>', methods=['GET', 'POST'])
 @is_logged_in
 @is_admin
-def edit_user(u_id):
+def edit_user(username):
     # Create cursor
     cur = mysql.connection.cursor()
 
     # Get user by id
-    cur.execute("SELECT * FROM users WHERE id = %s", [u_id])
+    cur.execute("SELECT * FROM users WHERE username = %s", [username])
 
     # get the first user with the id
     user1 = cur.fetchone()
@@ -441,7 +388,7 @@ def edit_user(u_id):
     cur.close()
 
     # Get form
-    form = EditForm(request.form)
+    form = UserForm(request.form)
 
     if request.method == 'GET':
         # Populate user form fields
@@ -458,8 +405,8 @@ def edit_user(u_id):
         cur = mysql.connection.cursor()
 
         # Execute
-        cur.execute("UPDATE users SET name=%s, email=%s, username=%s WHERE id=%s",
-                    (name, email, username, u_id))
+        cur.execute("UPDATE users SET name=%s, email=%s, username=%s WHERE username=%s",
+                    (name, email, username, username))
         # Commit to DB
         mysql.connection.commit()
 
