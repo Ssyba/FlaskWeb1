@@ -4,8 +4,8 @@ from flask_mysqldb import MySQL
 from passlib.hash import sha256_crypt
 
 # Import created classes and misc
-from myforms import UserForm, EditForm, ArticleForm
-from myvalidators import is_logged_in, is_admin, is_approved, is_private
+from myforms import UserForm, ArticleForm
+from myvalidators import is_logged_in, is_admin
 
 
 app = Flask(__name__)
@@ -39,21 +39,20 @@ def add_article():
     if request.method == 'POST' and form.validate():
         title = form.title.data
         body = form.body.data
-        private = form.private.data
+        p_checked = form.p_checked.data
 
         # Create Cursor
         cur = mysql.connection.cursor()
 
         # Check if private
-        if private:
+        if p_checked:
             # Execute for private
             cur.execute("INSERT INTO articles(title, body, author, state) VALUES(%s, %s, %s, %s)",
                         (title, body, session['username'], 'private'))
         else:
-            # Execute for not private
+            # Execute public
             cur.execute("INSERT INTO articles(title, body, author, state) VALUES(%s, %s, %s, %s)",
                         (title, body, session['username'], 'public'))
-
 
         # Commit to DB
         mysql.connection.commit()
@@ -94,20 +93,37 @@ def edit_article(a_id):
     if request.method == 'POST' and form.validate():
         title = request.form['title']
         body = request.form['body']
+        approval = form.a_approve.data
 
         # Create Cursor
         cur = mysql.connection.cursor()
-        # Execute
-        cur.execute ("UPDATE articles SET title=%s, body=%s WHERE id=%s",(title, body, a_id))
-        # Commit to DB
-        mysql.connection.commit()
+        if session['admin'] == 1:
+            if approval:
+                # Execute
+                cur.execute("UPDATE articles SET title=%s, body=%s, approval=%s WHERE id=%s",
+                            (title, body, 'approved', a_id))
+                # Commit to DB
+                mysql.connection.commit()
 
-        #Close connection
-        cur.close()
+                # Close connection
+                cur.close()
 
-        flash('Article Updated', 'success')
+                flash('Article Updated', 'success')
 
-        return redirect(url_for('dashboard'))
+                return redirect(url_for('dashboard'))
+            else:
+                # Execute
+                cur.execute("UPDATE articles SET title=%s, body=%s, approval=%s WHERE id=%s",
+                            (title, body, 'rejected', a_id))
+                # Commit to DB
+                mysql.connection.commit()
+
+                # Close connection
+                cur.close()
+
+                flash('Article Updated', 'success')
+
+                return redirect(url_for('dashboard'))
 
     return render_template('edit_article.html', form=form)
 
@@ -142,29 +158,29 @@ def articles():
     # Get articles
     result = cur.execute("SELECT * FROM articles")
 
-    articles = cur.fetchall()
+    a_articles = cur.fetchall()
     # Close connection
     cur.close()
 
     if result > 0:
-        return render_template('articles.html', articles=articles)
+        return render_template('articles.html', articles=a_articles)
     else:
         msg = 'No Articles Found'
         return render_template('articles.html', msg=msg)
 
 
-#Single Article
+# Single Article
 @app.route('/article/<string:a_id>/')
 def article(a_id):
     # Create cursor
     cur = mysql.connection.cursor()
 
     # Get article
-    result = cur.execute("SELECT * FROM articles WHERE id = %s", [a_id])
+    cur.execute("SELECT * FROM articles WHERE id = %s", [a_id])
 
-    article = cur.fetchone()
+    article1 = cur.fetchone()
 
-    return render_template('article.html', article=article)
+    return render_template('article.html', article=article1)
 
 
 # Single user
@@ -179,12 +195,6 @@ def user(u_id):
     f_user = cur.fetchone()
 
     return render_template('user.html', user=f_user)
-
-
-
-
-
-
 
 
 # User Register
@@ -285,13 +295,13 @@ def dashboard():
     # Get articles
     result = cur.execute("SELECT * FROM articles")
 
-    articles = cur.fetchall()
+    a_articles = cur.fetchall()
 
     # Close db
     cur.close()
 
     if result > 0:
-        return render_template('dashboard.html', articles=articles)
+        return render_template('dashboard.html', articles=a_articles)
     else:
         msg = 'No Articles Found'
         return render_template('dashboard.html', msg=msg)

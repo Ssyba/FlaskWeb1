@@ -10,6 +10,11 @@
     <div class="form-group">
         {{ render_field(form.body, class_="form-control", id="editor") }}
     </div>
+    {% if session.admin==1 %}
+    <div class="form-checkbox">
+        {{ render_field(form.a_approve, class_="form-checkbox") }}
+    </div>
+    {% endif %}
     <p><input class="btn btn-primary" type="submit" value="Submit">
 </form>
 {% endblock %}

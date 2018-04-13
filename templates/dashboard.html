@@ -14,6 +14,7 @@
         <th></th>
     </tr>
     {% for article in articles %}
+    {% if session.admin==1 %}
     <tr>
         <td>{{article.id}}</td>
         <td>{{article.title}}</td>
@@ -24,13 +25,24 @@
             <form action="{{url_for('delete_article', a_id=article.id)}}" method="post">
                 <input type="hidden" name="_method" value="DELETE">
                 <input type="submit" value="Delete" class="btn btn-danger">
-                {% if is_admin %}
-                <input type="checkbox" class="form-check-input" id="approve_id">
-                <label class="form-check-label" for="approve_id">Approved</label>
-                {% endif %}
             </form>
         </td>
     </tr>
+    {% elif article.author==session.username %}
+    <tr>
+        <td>{{article.id}}</td>
+        <td>{{article.title}}</td>
+        <td>{{article.author}}</td>
+        <td>{{article.create_date}}</td>
+        <td><a href="edit_article/{{article.id}}" class="btn btn-default pull-right">Edit</a></td>
+        <td>
+            <form action="{{url_for('delete_article', a_id=article.id)}}" method="post">
+                <input type="hidden" name="_method" value="DELETE">
+                <input type="submit" value="Delete" class="btn btn-danger">
+            </form>
+        </td>
+    </tr>
+    {% endif %}
     {% endfor %}
 </table>
 {% endblock %}
