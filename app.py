@@ -1,5 +1,7 @@
 from flask import Flask, render_template, flash, redirect, url_for, session, request
 from passlib.hash import sha256_crypt
+import os
+
 
 # import forms
 from myforms import UserForm, ArticleForm, EditForm
@@ -12,7 +14,7 @@ from table_maps import db
 
 app = Flask(__name__)
 
-app.config.from_pyfile('app.cfg')
+app.config.from_pyfile(os.environ['app'])
 
 # this object instance, "db", will be used for all SQLAlchemy commands
 db.app = app
@@ -41,11 +43,9 @@ def register():
         username = form.username.data
         password = sha256_crypt.encrypt(str(form.password.data))
 
-        candidate = Users(name=name, email=email, username=username, password=password)
-        query = Users.query.filter_by(username='username_c').first()
-
         # Execute query
-        if query is None:
+        if Users.query.filter_by(username=username).first() is None:
+            candidate = Users(name=name, email=email, username=username, password=password)
             db.session.add(candidate)
             db.session.commit()
         # else
@@ -62,34 +62,20 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # Get Form Fields
-        username_c = request.form['username']
-        password_candidate = request.form['password']
-
         # Get user by username
-        candidate = Users.query.filter_by(username=username_c).first()
+        candidate = Users.query.filter_by(username=request.form['username']).first()
 
-        if candidate is not None:
-            password = candidate.password
-            admin = candidate.admin
-            u_id = candidate.id
+        if  sha256_crypt.verify(request.form['password'], candidate.password):
+            session['logged_in'] = True
+            session['username'] = candidate.username
+            session['admin'] = candidate.admin
+            session['u_id'] = candidate.id
 
-            # Compare Passwords
-            if sha256_crypt.verify(password_candidate, password):
-                # Passed
-                session['logged_in'] = True
-                session['username'] = username_c
-                session['admin'] = admin
-                session['u_id'] = u_id
+            flash('You are now logged in', 'success')
 
-                flash('You are now logged in', 'success')
-                return redirect(url_for('dashboard'))
-            else:
-                error = 'Invalid login'
-                return render_template('login.html', error=error)
-
+            return redirect(url_for('dashboard'))
         else:
-            error = 'Username not found'
+            error = 'Invalid username or password'
             return render_template('login.html', error=error)
 
     return render_template('login.html')
