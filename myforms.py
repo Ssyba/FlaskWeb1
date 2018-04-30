@@ -2,7 +2,7 @@ from wtforms import Form, StringField, PasswordField, validators, IntegerField, 
 from wtforms.validators import optional
 
 
-# User Form Class
+# U_data Form Class
 class UserForm(Form):
     name = StringField('Name', [validators.Length(min=1, max=50)])
     username = StringField('Username', [validators.Length(min=4, max=25)])
@@ -15,6 +15,7 @@ class UserForm(Form):
     admin = IntegerField('Admin')
 
 
+# Admin user edit Form Class
 class EditForm(Form):
     name = StringField('Name', [validators.Length(min=1, max=50)])
     username = StringField('Username', [validators.Length(min=4, max=25)])
