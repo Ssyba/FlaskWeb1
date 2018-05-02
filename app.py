@@ -6,7 +6,7 @@ import os
 from myforms import UserForm, ArticleForm, EditForm
 # import my validators
 from myvalidators import is_logged_in, is_admin
-# impot my table pas
+# import my table pas
 from table_maps import Users, Articles
 # import the db instance
 from table_maps import db
@@ -251,35 +251,6 @@ def add_article_post():
     flash('Article Created', 'success')
 
     return redirect(url_for('dashboard'))
-
-
-# # Add Article
-# @app.route('/add_article', methods=['GET', 'POST'])
-# @is_logged_in
-# def add_article():
-#     form = ArticleForm(request.form)
-#     if request.method == 'POST' and form.validate():
-#         title = form.title.data
-#         body = form.body.data
-#         p_checked = form.p_checked.data
-#
-#         # Check if private
-#         if p_checked:
-#             # Execute for private
-#             a_article = Articles(title=title, body=body, author=session['username'], state='private')
-#             db.session.add(a_article)
-#             db.session.commit()
-#         else:
-#             # Execute public
-#             a_article = Articles(title=title, body=body, author=session['username'], state='public')
-#             db.session.add(a_article)
-#             db.session.commit()
-#
-#         flash('Article Created', 'success')
-#
-#         return redirect(url_for('dashboard'))
-#
-#     return render_template('add_article.html', form=form)
 
 
 # Delete Article
