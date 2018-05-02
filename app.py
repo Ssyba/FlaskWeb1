@@ -2,7 +2,6 @@ from flask import Flask, render_template, flash, redirect, url_for, session, req
 from passlib.hash import sha256_crypt
 import os
 
-
 # import forms
 from myforms import UserForm, ArticleForm, EditForm
 # import my validators
@@ -33,52 +32,57 @@ def about():
     return render_template('about.html')
 
 
-# User Register
-@app.route('/register', methods=['GET', 'POST'])
-def register():
+# Register Get
+@app.route('/register', methods=['GET'])
+def register_get():
     form = UserForm(request.form)
-    if request.method == 'POST' and form.validate():
-        name = form.name.data
-        email = form.email.data
-        username = form.username.data
-        password = sha256_crypt.encrypt(str(form.password.data))
-
-        # Execute query
-        if Users.query.filter_by(username=username).first() is None:
-            candidate = Users(name=name, email=email, username=username, password=password)
-            db.session.add(candidate)
-            db.session.commit()
-        # else
-        else:
-            flash('Username already taken', 'danger')
-            return render_template('register.html', form=form)
-
-        flash('You are now registered and can log in', 'success')
-        return redirect(url_for('login'))
     return render_template('register.html', form=form)
 
 
-# User login
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        # Get user by username
-        candidate = Users.query.filter_by(username=request.form['username']).first()
+# Register Post
+@app.route('/register', methods=['POST'])
+def register_post():
+    form = UserForm(request.form)
+    if Users.query.filter_by(username=form.username.data).first() is None:
+        candidate = Users(
+            name=form.name.data,
+            email=form.email.data,
+            username=form.username.data,
+            password=sha256_crypt.encrypt(str(form.password.data))
+        )
+        db.session.add(candidate)
+        db.session.commit()
 
-        if  sha256_crypt.verify(request.form['password'], candidate.password):
-            session['logged_in'] = True
-            session['username'] = candidate.username
-            session['admin'] = candidate.admin
-            session['u_id'] = candidate.id
+        flash('You are now registered and can log in', 'success')
+        return redirect(url_for('login'))
+    else:
+        flash('Username already taken', 'danger')
+        return render_template('register.html', form=form)
 
-            flash('You are now logged in', 'success')
 
-            return redirect(url_for('dashboard'))
-        else:
-            error = 'Invalid username or password'
-            return render_template('login.html', error=error)
-
+# Login Get
+@app.route('/login', methods=['GET'])
+def login_get():
     return render_template('login.html')
+
+
+# Login Post
+@app.route('/login', methods=['Post'])
+def login_post():
+    candidate = Users.query.filter_by(username=request.form['username']).first()
+
+    if (sha256_crypt.verify(request.form['password'], candidate.password)) and (candidate is not None):
+        session['logged_in'] = True
+        session['username'] = candidate.username
+        session['admin'] = candidate.admin
+        session['u_id'] = candidate.id
+
+        flash('You are now logged in', 'success')
+
+        return redirect(url_for('dashboard'))
+    else:
+        error = 'Invalid username or password'
+        return render_template('login.html', error=error)
 
 
 @app.route('/dashboard')
@@ -100,7 +104,7 @@ def dashboard():
 def logout():
     session.clear()
     flash('You are now logged out', 'success')
-    return redirect(url_for('login'))
+    return redirect(url_for('login_get'))
 
 
 # Articles
@@ -142,94 +146,140 @@ def delete_user(u_id):
     return redirect(url_for('list_db'))
 
 
-# Edit user
-@app.route('/edit_user/<string:username>', methods=['GET', 'POST'])
+# Edit user Get
+@app.route('/edit_user/<string:username>', methods=['GET'])
 @is_logged_in
 @is_admin
-def edit_user(username):
+def edit_user_get(username):
     e_user = Users.query.filter_by(username=username).first()
 
-    # Get form
     form = EditForm(request.form)
 
-    if request.method == 'GET':
-        # Populate user form fields
-        form.name.data = e_user.name
-        form.email.data = e_user.email
-        form.username.data = e_user.username
-
-    if request.method == 'POST' and form.validate():
-        e_user.name = form.name.data
-        e_user.email = form.email.data
-        e_user.username = form.username.data
-
-        db.session.commit()
-
-        flash('User Updated', 'success')
-
-        return redirect(url_for('list_db'))
+    form.name.data = e_user.name
+    form.email.data = e_user.email
+    form.username.data = e_user.username
 
     return render_template('edit_user.html', form=form)
 
 
-# u_data
-@app.route('/u_data/<string:username>', methods=['GET', 'POST'])
+# Edit user Post
+@app.route('/edit_user/<string:username>', methods=['POST'])
 @is_logged_in
-def u_data(username):
+@is_admin
+def edit_user_post(username):
+    e_user = Users.query.filter_by(username=username).first()
+
+    form = EditForm(request.form)
+
+    e_user.name = form.name.data
+    e_user.email = form.email.data
+    e_user.username = form.username.data
+
+    db.session.commit()
+
+    flash('User Updated', 'success')
+
+    return redirect(url_for('list_db'))
+
+
+# u_data Get
+@app.route('/u_data/<string:username>', methods=['GET'])
+@is_logged_in
+def u_data_get(username):
     # Get user by id
     e_user = Users.query.filter_by(username=username).first()
 
     # Get form
     form = UserForm(request.form)
 
-    if request.method == 'GET':
-        # Populate user form fields
-        form.name.data = e_user.name
-        form.email.data = e_user.email
-        form.username.data = e_user.username
-        form.password.data = e_user.password
+    # Populate user form fields
+    form.name.data = e_user.name
+    form.email.data = e_user.email
+    form.username.data = e_user.username
+    form.password.data = e_user.password
 
-    if request.method == 'POST' and form.validate():
-        e_user.name = form.name.data
-        e_user.email = form.email.data
-        e_user.username = form.username.data
-        e_user.password = sha256_crypt.encrypt(str(form.password.data))
-
-        db.session.commit()
-
-        flash('User Updated', 'success')
-
-        return redirect(url_for('u_data', username=username))
     return render_template('u_data.html', form=form)
 
 
-# Add Article
-@app.route('/add_article', methods=['GET', 'POST'])
+# u_data Post
+@app.route('/u_data/<string:username>', methods=['POST'])
 @is_logged_in
-def add_article():
+def u_data_post(username):
+    # Get user by id
+    e_user = Users.query.filter_by(username=username).first()
+
+    # Get form
+    form = UserForm(request.form)
+
+    e_user.name = form.name.data
+    e_user.email = form.email.data
+    e_user.username = form.username.data
+    e_user.password = sha256_crypt.encrypt(str(form.password.data))
+
+    db.session.commit()
+
+    flash('User Updated', 'success')
+
+    return redirect(url_for('u_data_get', username=username))
+
+
+# Add Article Get
+@app.route('/add_article', methods=['GET'])
+@is_logged_in
+def add_article_get():
     form = ArticleForm(request.form)
-    if request.method == 'POST' and form.validate():
-        title = form.title.data
-        body = form.body.data
-        p_checked = form.p_checked.data
-
-        # Check if private
-        if p_checked:
-            # Execute for private
-            a_article = Articles(title=title, body=body, author=session['username'], state='private')
-            db.session.add(a_article)
-            db.session.commit()
-        else:
-            # Execute public
-            a_article = Articles(title=title, body=body, author=session['username'], state='public')
-            db.session.add(a_article)
-            db.session.commit()
-
-        flash('Article Created', 'success')
-
-        return redirect(url_for('dashboard'))
 
     return render_template('add_article.html', form=form)
+
+
+# Add Article Get
+@app.route('/add_article', methods=['POST'])
+@is_logged_in
+def add_article_post():
+    form = ArticleForm(request.form)
+
+    if form.validate():
+        if form.p_checked.data:
+            a_article = Articles(title=form.title.data, body=form.body.data, author=session['username'],
+                                 state='private')
+        else:
+            a_article = Articles(title=form.title.data, body=form.body.data, author=session['username'],
+                                 state='public')
+        db.session.add(a_article)
+        db.session.commit()
+
+    flash('Article Created', 'success')
+
+    return redirect(url_for('dashboard'))
+
+
+# # Add Article
+# @app.route('/add_article', methods=['GET', 'POST'])
+# @is_logged_in
+# def add_article():
+#     form = ArticleForm(request.form)
+#     if request.method == 'POST' and form.validate():
+#         title = form.title.data
+#         body = form.body.data
+#         p_checked = form.p_checked.data
+#
+#         # Check if private
+#         if p_checked:
+#             # Execute for private
+#             a_article = Articles(title=title, body=body, author=session['username'], state='private')
+#             db.session.add(a_article)
+#             db.session.commit()
+#         else:
+#             # Execute public
+#             a_article = Articles(title=title, body=body, author=session['username'], state='public')
+#             db.session.add(a_article)
+#             db.session.commit()
+#
+#         flash('Article Created', 'success')
+#
+#         return redirect(url_for('dashboard'))
+#
+#     return render_template('add_article.html', form=form)
 
 
 # Delete Article
@@ -245,45 +295,43 @@ def delete_article(a_id):
     return redirect(url_for('dashboard'))
 
 
-# Edit Article
-@app.route('/edit_article/<string:a_id>', methods=['GET', 'POST'])
+# Edit Article Get
+@app.route('/edit_article/<string:a_id>', methods=['GET'])
 @is_logged_in
-def edit_article(a_id):
+def edit_article_get(a_id):
     e_article = Articles.query.filter_by(id=a_id).first()
 
     # Get form
     form = ArticleForm(request.form)
 
-    if request.method == 'GET':
-        # Populate article form fields
-        form.title.data = e_article.title
-        form.body.data = e_article.body
+    form.title.data = e_article.title
+    form.body.data = e_article.body
 
-    if request.method == 'POST' and form.validate():
+    return render_template('edit_article.html', form=form)
+
+
+# Edit Article Post
+@app.route('/edit_article/<string:a_id>', methods=['POST'])
+@is_logged_in
+def edit_article_post(a_id):
+    e_article = Articles.query.filter_by(id=a_id).first()
+
+    # Get form
+    form = ArticleForm(request.form)
+
+    if form.validate():
         e_article.title = request.form['title']
         e_article.body = request.form['body']
-        approval = form.a_approve.data
 
         if session['admin'] == 1:
-            if approval:
+            if form.a_approve.data:
                 e_article.approval = 'approved'
-                db.session.commit()
-
-                flash('Article Updated', 'success')
-
-                return redirect(url_for('dashboard'))
             else:
                 e_article.approval = 'rejected'
-                db.session.commit()
 
-                flash('Article Updated', 'success')
-
-                return redirect(url_for('dashboard'))
         flash('Article Updated', 'success')
         db.session.commit()
         return redirect(url_for('dashboard'))
-
-    return render_template('edit_article.html', form=form)
 
 
 # Single Article
