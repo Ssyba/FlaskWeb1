@@ -1,5 +1,4 @@
-from wtforms import Form, StringField, PasswordField, validators, IntegerField, TextAreaField, BooleanField
-from wtforms.validators import optional
+from wtforms import Form, StringField, PasswordField, validators, IntegerField
 
 
 # U_data Form Class
@@ -21,11 +20,3 @@ class EditForm(Form):
     username = StringField('Username', [validators.Length(min=4, max=25)])
     email = StringField('Email', [validators.Length(min=6, max=50)])
     admin = IntegerField('Admin')
-
-
-# Article Form Class
-class ArticleForm(Form):
-    title = StringField('Title', [validators.Length(min=1, max=200)])
-    body = TextAreaField('Body', [validators.Length(min=30)])
-    p_checked = BooleanField('Make Private:', validators=[optional(), ])
-    a_approve = BooleanField('Approved:', validators=[optional(), ])

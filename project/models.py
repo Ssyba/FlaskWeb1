@@ -1,6 +1,6 @@
-from flask_sqlalchemy import SQLAlchemy
-
-db = SQLAlchemy()
+from project import db
+from functools import wraps
+from flask import flash, redirect, url_for, session
 
 
 class Users(db.Model):
@@ -25,3 +25,24 @@ class Articles(db.Model):
     create_date = db.Column('create_date', db.DateTime, default=db.func.current_timestamp())
     state = db.Column('state', db.String(9), nullable=False)
     approval = db.Column('approval', db.String(9))
+
+
+# Check if user is logged in
+def is_logged_in(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        if 'logged_in' in session:
+            return f(*args, **kwargs)
+        else:
+            flash('Unauthorized, Please login', 'danger')
+            return redirect(url_for('login'))
+    return wrap
+
+
+# Check if admin
+def is_admin(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        if session['admin'] == 1 and 'logged_in' in session:
+            return f(*args, **kwargs)
+    return wrap
