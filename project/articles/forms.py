@@ -1,5 +1,6 @@
-from wtforms import Form, StringField, PasswordField, validators, IntegerField, TextAreaField, BooleanField
+from wtforms import Form, StringField, validators, TextAreaField, BooleanField
 from wtforms.validators import optional
+
 
 # Article Form Class
 class ArticleForm(Form):

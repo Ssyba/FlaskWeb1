@@ -17,6 +17,7 @@ from project.articles.views import article_blueprint
 app.register_blueprint(user_blueprint, url_prefix='/users')
 app.register_blueprint(article_blueprint, url_prefix='/articles')
 
+
 # Index
 @app.route('/')
 def root():
@@ -27,7 +28,3 @@ def root():
 @app.route('/about')
 def about():
     return render_template('about.html')
-
-
-if __name__ == '__main__':
-    app.run(debug=True)

@@ -2,7 +2,7 @@ from project import db
 from functools import wraps
 from flask import flash, redirect, url_for, session
 
-
+#Mapare users db
 class Users(db.Model):
     __tablename__ = 'users'
     id = db.Column('id', db.Integer, primary_key=True)
@@ -15,7 +15,7 @@ class Users(db.Model):
     def __repr__(self):
         return '<User %r>' % self.username
 
-
+# Mapare articole db
 class Articles(db.Model):
     __tablename__ = 'articles'
     id = db.Column('id', db.Integer, primary_key=True)
